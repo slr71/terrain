@@ -1,0 +1,65 @@
+{:deps
+ {cheshire/cheshire                   {:mvn/version "5.13.0"}
+  clj-http/clj-http                   {:mvn/version "3.13.0"}
+  clj-time/clj-time                   {:mvn/version "0.15.2"}
+  clojure.java-time/clojure.java-time {:mvn/version "1.4.2"}
+  clojurewerkz/elastisch              {:mvn/version "2.2.0"}
+  com.appsflyer/pronto                {:mvn/version "3.0.0"}
+  com.cemerick/url                    {:mvn/version "0.1.1"
+                                       :exclusions  [com.cemerick/clojurescript.test]}
+  com.impossibl.pgjdbc-ng/pgjdbc-ng   {:mvn/version "0.8.9"}
+  io.nats/jnats                       {:mvn/version "2.20.0"}
+  less-awful-ssl/less-awful-ssl       {:mvn/version "1.0.6"}
+  me.raynes/fs                        {:mvn/version "1.4.6"
+                                       :exclusions  [org.apache.commons/commons-compress]}
+  medley/medley                       {:mvn/version "1.4.0"}
+  metosin/ring-http-response          {:mvn/version "0.9.3"}
+  org.apache.tika/tika-core           {:mvn/version "2.9.2"
+                                       :exclusions  [org.slf4j/slf4j-api]}
+  org.clojure/data.codec              {:mvn/version "0.2.0"}
+  org.clojure/tools.nrepl             {:mvn/version "0.2.13"}
+  io.github.cyverse-de/p              {:git/sha "426a6bd80191b3af0f680ebfc49550d98e67a311"}
+  org.cyverse/async-tasks-client      {:mvn/version "0.0.5"}
+  org.cyverse/clj-icat-direct         {:mvn/version "2.9.6"}
+  org.cyverse/clj-jargon              {:mvn/version "3.1.1"
+                                       :exclusions  [org.bouncycastle/bcprov-jdk16]}
+  org.cyverse/clojure-commons         {:mvn/version "3.0.9"}
+  org.cyverse/common-cfg              {:mvn/version "2.8.3"}
+  org.cyverse/common-cli              {:mvn/version "2.8.2"}
+  org.cyverse/common-swagger-api      {:mvn/version "3.4.5"}
+  org.cyverse/cyverse-groups-client   {:mvn/version "0.1.9"}
+  org.cyverse/dire                    {:mvn/version "0.5.6"}
+  org.cyverse/kameleon                {:mvn/version "3.0.10"
+                                       :exclusions  [com.impossibl.pgjdbc-ng/pgjdbc-ng]}
+  org.cyverse/metadata-client         {:mvn/version "3.1.2"}
+  org.cyverse/metadata-files          {:mvn/version "2.1.1"}
+  org.cyverse/permissions-client      {:mvn/version "2.8.4"}
+  org.cyverse/service-logging         {:mvn/version "2.8.4"}
+  potemkin/potemkin                   {:mvn/version "0.4.7"}
+  ring/ring-jetty-adapter             {:mvn/version "1.8.0"}
+  slingshot/slingshot                 {:mvn/version "0.12.2"}
+  org.clojure/clojure                 {:mvn/version "1.11.4"}}
+
+ :aliases
+ {;; Run the tests.
+  ;; clj -X:test
+  :test {:extra-paths ["conf/test" "test" "test-resources"]
+         :extra-deps  {io.github.cognitect-labs/test-runner {:git/tag "v0.5.1" :git/sha "dfb30dd"}
+                       clj-http-fake/clj-http-fake          {:mvn/version "1.0.4"}}
+         :main-opts   ["-m" "cognitect.test-runner"]
+         :exec-fn     cognitect.test-runner.api/test}
+
+  ;; Lint the source.
+  ;; clj -M:lint
+  :lint {:extra-deps {jonase/eastwood {:mvn/version "1.4.3"}}
+         :main-opts  ["-m" "eastwood.lint" {:source-paths       ["src"]
+                                            :test-paths         ["test"]
+                                            :exclude-namespaces [terrain.routes.token terrain.util.jwt]
+                                            :linters            [:wrong-arity
+                                                                 :wrong-ns-form
+                                                                 :wrong-pre-post
+                                                                 :wrong-tag
+                                                                 :misplaced-docstrings]}]}}
+
+ :mvn/repos
+ {"dice.repository" {:url "https://raw.github.com/DICE-UNC/DICE-Maven/master/releases"}}}
