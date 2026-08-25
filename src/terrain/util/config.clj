@@ -366,7 +366,7 @@
 (declare info-typer-base-url)
 (cc/defprop-optstr info-typer-base-url
   "The base URL for the info typer service, which owns file type detection."
-  [props config-valid configs filesystem-routes-enabled]
+  [props config-valid configs data-routes-enabled]
   "terrain.info-typer.base-url" "http://info-typer")
 
 (declare es-enabled)

@@ -270,8 +270,6 @@
   [params body]
   (raw/path-list-creator (:user params) (:paths body) params))
 
-(def get-type-list info-typer/get-type-list)
-
 (defn set-file-type
   "Sets a file's type. The path is still resolved to an ID through data-info, which owns
    paths; the type itself is info-typer's."
