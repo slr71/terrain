@@ -55,11 +55,11 @@
                  :as           :json}))))
 
 (defn apps-in-community
-  [community-id]
+  [community-id params]
   (:body
    (client/get (apps-url "apps" "communities" community-id "apps")
                (disable-redirects
-                {:query-params (secured-params)
+                {:query-params (secured-params params)
                  :as           :json}))))
 
 (defn admin-get-apps-in-community

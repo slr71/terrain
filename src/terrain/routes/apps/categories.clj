@@ -63,4 +63,4 @@
        :return apps-schema/AppListing
        :summary schema/AppCommunityAppListingSummary
        :description schema/AppCommunityAppListingDocs
-       (ok (apps/apps-in-community community-id))))))
+       (ok (apps/apps-in-community community-id params))))))
