@@ -17,7 +17,8 @@
             [terrain.clients.metadata.raw :as metadata]
             [terrain.clients.notifications :as notifications]
             [terrain.util.config :as config]
-            [terrain.util.email :as email]))
+            [terrain.util.email :as email])
+  (:import [java.util Locale]))
 
 ;; Status Codes.
 (def ^:private status-code-completion "Completion")
@@ -33,6 +34,16 @@ If you need to make any changes to the dataset, including the metadata, please c
 
 If this dataset accompanies a paper, please contact us with the DOI for that paper once it is published.")
 
+;; The attribute holding the dataset title. Unlike the identifier and date attributes, this is not
+;; configurable: `org.cyverse.metadata-files.datacite-4-2.titles` hardcodes it as its `:attr-name`,
+;; so a configurable value could name an attribute the DataCite XML builder ignores, which would
+;; silently produce a target URL for a dataset that never exists in CKAN.
+(def ^:private datacite-title-attr "title")
+
+;; CKAN's own bounds on a dataset name.
+(def ^:private ckan-dataset-name-min-length 2)
+(def ^:private ckan-dataset-name-max-length 100)
+
 (defn- format-staging-path
   [path]
   (ft/path-join (config/permanent-id-staging-dir) (ft/basename path)))
@@ -41,16 +52,46 @@ If this dataset accompanies a paper, please contact us with the DOI for that pap
   [path]
   (ft/path-join (config/permanent-id-publish-dir) (ft/basename path)))
 
-(defn- format-metadata-target-url
-  [path]
-  (str (ft/rm-last-slash (config/permanent-id-target-base-url)) (format-publish-path path)))
-
 (defn- find-attr-value
   [avus attr]
   (->> avus
        (filter #(= attr (:attr %)))
        first
        :value))
+
+(defn- ckan-dataset-name
+  "Derives the CKAN dataset name (the last path element of a dataset's page URL) from its title,
+   reproducing the rule used by the job that syncs curated folders into CKAN: lower-case the title,
+   replace spaces with underscores, drop everything that isn't alphanumeric, a hyphen, or an
+   underscore, then truncate to CKAN's 100-character maximum.
+
+   Locale/ROOT rather than clojure.string/lower-case, which uses the default locale: on a
+   Turkish-locale JVM that would lower-case `I` to a dotless `ı`, which the sync never produces."
+  [title]
+  (let [dataset-name (->> (.toLowerCase (str title) Locale/ROOT)
+                          (map (fn [c] (if (= \space c) \_ c)))
+                          (filter (fn [^Character c] (or (Character/isLetterOrDigit c) (#{\- \_} c))))
+                          (apply str))
+        dataset-name (subs dataset-name 0 (min (count dataset-name) ckan-dataset-name-max-length))]
+    (when (< (count dataset-name) ckan-dataset-name-min-length)
+      (throw+ {:type  :clojure-commons.exception/bad-request
+               :error (str "The metadata title does not yield a usable Data Commons dataset name. "
+                           "It must contain at least "
+                           ckan-dataset-name-min-length
+                           " letters, digits, hyphens, or underscores.")
+               :title title}))
+    dataset-name))
+
+(defn- format-metadata-target-url
+  "Builds the URL the DOI resolves to: the dataset's page in the CyVerse Data Commons CKAN catalog.
+   The dataset isn't in CKAN yet when the DOI is minted, so its name is derived from the same title
+   AVU the sync will derive it from rather than looked up."
+  [avus]
+  ;; Plain concatenation, not ft/path-join: that routes through java.io.File, which would collapse
+  ;; the double slash in `https://` to a single one.
+  (str (ft/rm-last-slash (config/permanent-id-target-base-url))
+       "/dataset/"
+       (ckan-dataset-name (find-attr-value avus datacite-title-attr))))
 
 (defn- validate-datacite-metadata
   [avus]
@@ -456,8 +497,10 @@ If this dataset accompanies a paper, please contact us with the DOI for that pap
          folder-id       (uuidify (:id folder))
          metadata        (data-info/get-metadata-json user folder-id)
          avus            (format-avus metadata)
-         target-url      (format-metadata-target-url (:path folder))
+         ;; Validate before building the target URL: the URL is derived from the title AVU, and
+         ;; this is what reports a missing or blank one as a request error.
          datacite-xml    (parse-valid-datacite-metadata type avus)
+         target-url      (format-metadata-target-url avus)
          doi-response    (datacite-client/create-doi datacite-xml target-url)
          identifier      (get-in doi-response [:data :id])
          publish-avus    (format-publish-avus avus identifier type)

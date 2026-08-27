@@ -493,7 +493,8 @@
 
 (declare permanent-id-target-base-url)
 (cc/defprop-str permanent-id-target-base-url
-  "The base URL where curated folders with a permanent ID are published."
+  "The base URL of the Data Commons catalog. A minted DOI's target URL is this base plus
+   `/dataset/<name>`, where the name is derived from the dataset's title."
   [props config-valid configs]
   "terrain.permanent-id.target-base-url")
 
