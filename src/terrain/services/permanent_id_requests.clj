@@ -1,9 +1,11 @@
 (ns terrain.services.permanent-id-requests
-  (:require [cheshire.core :as json]
+  (:require [cemerick.url :as curl]
+            [cheshire.core :as json]
             [clj-time.core :as time]
             [clojure.data.xml :as xml]
             [clojure.string :as string]
             [clojure.tools.logging :as log]
+            [clojure-commons.exception-util :as cxu]
             [clojure-commons.file-utils :as ft]
             [kameleon.uuids :refer [uuidify]]
             [org.cyverse.metadata-files.datacite-4-2 :as datacite]
@@ -34,10 +36,8 @@ If you need to make any changes to the dataset, including the metadata, please c
 
 If this dataset accompanies a paper, please contact us with the DOI for that paper once it is published.")
 
-;; The attribute holding the dataset title. Unlike the identifier and date attributes, this is not
-;; configurable: `org.cyverse.metadata-files.datacite-4-2.titles` hardcodes it as its `:attr-name`,
-;; so a configurable value could name an attribute the DataCite XML builder ignores, which would
-;; silently produce a target URL for a dataset that never exists in CKAN.
+;; The attribute holding the dataset title. This must match the attribute name used in
+;; `org.cyverse.metadata-files.datacite-4-2.titles`.
 (def ^:private datacite-title-attr "title")
 
 ;; CKAN's own bounds on a dataset name.
@@ -61,37 +61,29 @@ If this dataset accompanies a paper, please contact us with the DOI for that pap
 
 (defn- ckan-dataset-name
   "Derives the CKAN dataset name (the last path element of a dataset's page URL) from its title,
-   reproducing the rule used by the job that syncs curated folders into CKAN: lower-case the title,
-   replace spaces with underscores, drop everything that isn't alphanumeric, a hyphen, or an
-   underscore, then truncate to CKAN's 100-character maximum.
-
-   Locale/ROOT rather than clojure.string/lower-case, which uses the default locale: on a
-   Turkish-locale JVM that would lower-case `I` to a dotless `ı`, which the sync never produces."
+   reproducing the rule used by the job that syncs curated folders into CKAN."
   [title]
-  (let [dataset-name (->> (.toLowerCase (str title) Locale/ROOT)
-                          (map (fn [c] (if (= \space c) \_ c)))
-                          (filter (fn [^Character c] (or (Character/isLetterOrDigit c) (#{\- \_} c))))
-                          (apply str))
+  ;; Use Locale/ROOT so that the case conversion doesn't depend on the host's locale setting.
+  (let [dataset-name (-> (.toLowerCase (str title) Locale/ROOT)
+                         (string/replace " " "_")
+                         (string/replace #"[^\w-]" ""))
         dataset-name (subs dataset-name 0 (min (count dataset-name) ckan-dataset-name-max-length))]
     (when (< (count dataset-name) ckan-dataset-name-min-length)
-      (throw+ {:type  :clojure-commons.exception/bad-request
-               :error (str "The metadata title does not yield a usable Data Commons dataset name. "
-                           "It must contain at least "
-                           ckan-dataset-name-min-length
-                           " letters, digits, hyphens, or underscores.")
-               :title title}))
+      (cxu/bad-request "metadata title contains too few characters"
+                       {:title        title
+                        :dataset-name dataset-name
+                        :length       (count dataset-name)
+                        :min-length   ckan-dataset-name-min-length}))
     dataset-name))
 
 (defn- format-metadata-target-url
   "Builds the URL the DOI resolves to: the dataset's page in the CyVerse Data Commons CKAN catalog.
-   The dataset isn't in CKAN yet when the DOI is minted, so its name is derived from the same title
-   AVU the sync will derive it from rather than looked up."
+   The dataset may not exist in CKAN when the DOI is minted, so its name is derived from the same
+   title AVU the sync will derive it from rather than looked up."
   [avus]
-  ;; Plain concatenation, not ft/path-join: that routes through java.io.File, which would collapse
-  ;; the double slash in `https://` to a single one.
-  (str (ft/rm-last-slash (config/permanent-id-target-base-url))
-       "/dataset/"
-       (ckan-dataset-name (find-attr-value avus datacite-title-attr))))
+  (str (curl/url (config/permanent-id-target-base-url)
+                 "dataset"
+                 (ckan-dataset-name (find-attr-value avus datacite-title-attr)))))
 
 (defn- validate-datacite-metadata
   [avus]
@@ -497,8 +489,6 @@ If this dataset accompanies a paper, please contact us with the DOI for that pap
          folder-id       (uuidify (:id folder))
          metadata        (data-info/get-metadata-json user folder-id)
          avus            (format-avus metadata)
-         ;; Validate before building the target URL: the URL is derived from the title AVU, and
-         ;; this is what reports a missing or blank one as a request error.
          datacite-xml    (parse-valid-datacite-metadata type avus)
          target-url      (format-metadata-target-url avus)
          doi-response    (datacite-client/create-doi datacite-xml target-url)

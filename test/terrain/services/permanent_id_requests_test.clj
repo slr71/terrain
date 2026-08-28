@@ -14,12 +14,6 @@
   [& titles]
   (mapv (fn [title] {:attr "title" :value title}) titles))
 
-;; A DOI's target URL is derived from the dataset's title rather than looked up, because the CKAN
-;; dataset does not exist yet when the DOI is minted. So this derivation has to match, character for
-;; character, the rule the AVU-to-CKAN sync applies when it later creates the dataset. Any
-;; divergence mints a DOI that resolves to a 404 — and a published DOI's target URL can only be
-;; corrected by hand at DataCite.
-
 (deftest ckan-dataset-name-matches-the-sync-rule
   (testing "title-to-name pairs taken verbatim from the live catalog"
     (are [title expected] (= expected (ckan-dataset-name title))
@@ -60,8 +54,7 @@
       (is (= "data-driven_discovery_of_regulatory_mechanisms_and_cellular_resource_allocation_via_multi-modal_data"
              name))))
 
-  (testing "a name shorter than CKAN's 2-character minimum is rejected rather than pointing a DOI at
-            a page that can never exist"
+  (testing "a name shorter than CKAN's 2-character minimum is rejected"
     ;; pure punctuation slugifies to the empty string
     (is (thrown+? [:type :clojure-commons.exception/bad-request] (ckan-dataset-name "...")))
     (is (thrown+? [:type :clojure-commons.exception/bad-request] (ckan-dataset-name "x")))
@@ -70,9 +63,6 @@
     (is (= "ab" (ckan-dataset-name "ab")))))
 
 (deftest ckan-dataset-name-is-locale-independent
-  ;; clojure.string/lower-case lower-cases with the default locale, which on a Turkish-locale JVM
-  ;; turns `I` into a dotless `ı` -- a name the sync, running Python's locale-independent .lower(),
-  ;; would never produce.
   (testing "an uppercase I lower-cases to ASCII i regardless of the JVM's default locale"
     (let [default (java.util.Locale/getDefault)]
       (try
