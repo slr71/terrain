@@ -72,17 +72,17 @@
           (java.util.Locale/setDefault default))))))
 
 (deftest target-url-points-at-the-ckan-dataset-page
-  (testing "the URL is the configured base plus /dataset/<name>"
+  (testing "the URL is the configured base plus the dataset name"
     (is (= "http://perm-id-target-base-url/dataset/genomes_to_fields_2023_dataset"
            (format-metadata-target-url (title-avus "Genomes to Fields 2023 dataset")))))
 
   (testing "a trailing slash on the base does not produce a doubled slash"
-    (with-redefs [config/permanent-id-target-base-url (constantly "https://dc.cyverse.org/")]
+    (with-redefs [config/permanent-id-target-base-url (constantly "https://dc.cyverse.org/dataset/")]
       (is (= "https://dc.cyverse.org/dataset/some_dataset"
              (format-metadata-target-url (title-avus "Some Dataset"))))))
 
-  (testing "the scheme's own double slash survives"
-    (with-redefs [config/permanent-id-target-base-url (constantly "https://dc.cyverse.org")]
+  (testing "a base without a trailing slash gets one"
+    (with-redefs [config/permanent-id-target-base-url (constantly "https://dc.cyverse.org/dataset")]
       (is (= "https://dc.cyverse.org/dataset/some_dataset"
              (format-metadata-target-url (title-avus "Some Dataset"))))))
 

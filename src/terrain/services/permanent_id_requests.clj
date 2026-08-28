@@ -82,7 +82,6 @@ If this dataset accompanies a paper, please contact us with the DOI for that pap
    title AVU the sync will derive it from rather than looked up."
   [avus]
   (str (curl/url (config/permanent-id-target-base-url)
-                 "dataset"
                  (ckan-dataset-name (find-attr-value avus datacite-title-attr)))))
 
 (defn- validate-datacite-metadata
