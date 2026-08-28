@@ -499,7 +499,9 @@
 
 (declare permanent-id-target-base-url)
 (cc/defprop-str permanent-id-target-base-url
-  "The base URL where curated folders with a permanent ID are published."
+  "The base URL that a minted DOI's target URL is built from. The dataset name, derived from the
+   dataset's title, is appended to it, so this must include the catalog's path to a dataset page:
+   for CKAN, `https://dc.cyverse.org/dataset`."
   [props config-valid configs]
   "terrain.permanent-id.target-base-url")
 
